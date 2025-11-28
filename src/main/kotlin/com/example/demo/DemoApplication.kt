@@ -38,13 +38,10 @@ fun main(args: Array<String>) {
 
 val VEHICLES =
     listOf(
-        Vehicle(name = "Vehicle #1", price = 10.0, transmissions = listOf("Automatic", "Manual"), paints = mapOf(123 to "Grey")),
-        Vehicle(name = "Vehicle #2", price = null, transmissions = listOf("Automatic", "Manual"), paints = mapOf(123 to "Grey")),
-        Vehicle(name = "Vehicle #3", price = 10.0, transmissions = null, paints = mapOf(123 to "Grey")),
-        Vehicle(name = "Vehicle #4", price = 10.0, transmissions = listOf("Automatic", "Manual"), paints = mapOf(123 to null)),
-        Vehicle(name = "Vehicle #5", price = 10.0, transmissions = listOf("Automatic", "Manual"), paints = emptyMap()),
-        Vehicle(name = "Vehicle #6", price = null, transmissions = emptyList(), paints = mapOf(123 to null)),
-        Vehicle(name = "Vehicle #7", price = null, transmissions = emptyList(), paints = emptyMap()),
+        Vehicle(name = "Vehicle #1", price = 10.0, transmissions = listOf("Automatic", "Manual")),
+        Vehicle(name = "Vehicle #2", price = null, transmissions = listOf("Automatic", "Manual")),
+        Vehicle(name = "Vehicle #3", price = 10.0, transmissions = null),
+        Vehicle(name = "Vehicle #4", price = null, transmissions = emptyList()),
     )
 
 @Configuration
@@ -57,33 +54,9 @@ class JacksonConfiguration {
                 disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 changeDefaultPropertyInclusion { it.withValueInclusion(JsonInclude.Include.NON_EMPTY) }
-//                changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_EMPTY) }
+                // Uncommenting the line bellow fixes the GraphQL issue (GraphQL response data is a LinkedHashMap)
+                // changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_EMPTY) }
             }.build()
-
-    @Bean
-    fun codecConfigurer(jsonMapper: JsonMapper): DefaultClientCodecConfigurer =
-        DefaultClientCodecConfigurer().apply {
-            defaultCodecs().jacksonJsonDecoder(JacksonJsonDecoder(jsonMapper))
-            defaultCodecs().jacksonJsonEncoder(JacksonJsonEncoder(jsonMapper))
-        }
-
-//    @Bean
-//    fun jacksonJsonEncoder(jsonMapper: JsonMapper) = JacksonJsonEncoder(jsonMapper)
-
-    @Bean
-    fun graphQlHttpHandler(
-        webGraphQlHandler: WebGraphQlHandler,
-        codecConfigurer: CodecConfigurer,
-    ) = GraphQlHttpHandler(webGraphQlHandler, codecConfigurer)
-
-    @Bean
-    fun cursorStrategy(codecConfigurer: CodecConfigurer) =
-        CursorStrategy.withEncoder(
-            ScrollPositionCursorStrategy(
-                JsonKeysetCursorStrategy(codecConfigurer),
-            ),
-            CursorEncoder.base64(),
-        )
 }
 
 @RestController
@@ -104,5 +77,4 @@ data class Vehicle(
     val name: String,
     val price: Double?,
     val transmissions: List<String>?,
-    val paints: Map<Int, String?>,
 )
