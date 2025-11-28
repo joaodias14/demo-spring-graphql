@@ -51,8 +51,6 @@ class JacksonConfiguration {
     fun jsonMapper(): JsonMapper =
         jacksonMapperBuilder()
             .apply {
-                disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 changeDefaultPropertyInclusion { it.withValueInclusion(JsonInclude.Include.NON_EMPTY) }
                 // Uncommenting the line bellow fixes the GraphQL issue (GraphQL response data is a LinkedHashMap)
                 // changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_EMPTY) }
