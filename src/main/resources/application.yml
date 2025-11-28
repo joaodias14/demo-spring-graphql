@@ -1,0 +1,9 @@
+spring:
+  graphql:
+    http:
+      path: /graphql
+    schema:
+      inspection:
+        enabled: true
+  webflux:
+    base-path: /demo/v1

@@ -1,0 +1,108 @@
+package com.example.demo
+
+import com.fasterxml.jackson.annotation.JsonInclude
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Primary
+import org.springframework.graphql.data.method.annotation.QueryMapping
+import org.springframework.graphql.data.pagination.CursorEncoder
+import org.springframework.graphql.data.pagination.CursorStrategy
+import org.springframework.graphql.data.query.JsonKeysetCursorStrategy
+import org.springframework.graphql.data.query.ScrollPositionCursorStrategy
+import org.springframework.graphql.server.WebGraphQlHandler
+import org.springframework.graphql.server.webflux.GraphQlHttpHandler
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.codec.CodecConfigurer
+import org.springframework.http.codec.json.JacksonJsonDecoder
+import org.springframework.http.codec.json.JacksonJsonEncoder
+import org.springframework.http.codec.support.DefaultClientCodecConfigurer
+import org.springframework.stereotype.Controller
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.ResponseStatus
+import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.DeserializationFeature
+import tools.jackson.databind.cfg.DateTimeFeature
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
+
+@SpringBootApplication
+class DemoApplication
+
+fun main(args: Array<String>) {
+    runApplication<DemoApplication>(*args)
+}
+
+val VEHICLES =
+    listOf(
+        Vehicle(name = "Vehicle #1", price = 10.0, transmissions = listOf("Automatic", "Manual"), paints = mapOf(123 to "Grey")),
+        Vehicle(name = "Vehicle #2", price = null, transmissions = listOf("Automatic", "Manual"), paints = mapOf(123 to "Grey")),
+        Vehicle(name = "Vehicle #3", price = 10.0, transmissions = null, paints = mapOf(123 to "Grey")),
+        Vehicle(name = "Vehicle #4", price = 10.0, transmissions = listOf("Automatic", "Manual"), paints = mapOf(123 to null)),
+        Vehicle(name = "Vehicle #5", price = 10.0, transmissions = listOf("Automatic", "Manual"), paints = emptyMap()),
+        Vehicle(name = "Vehicle #6", price = null, transmissions = emptyList(), paints = mapOf(123 to null)),
+        Vehicle(name = "Vehicle #7", price = null, transmissions = emptyList(), paints = emptyMap()),
+    )
+
+@Configuration
+class JacksonConfiguration {
+    @Bean
+    @Primary
+    fun jsonMapper(): JsonMapper =
+        jacksonMapperBuilder()
+            .apply {
+                disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+                changeDefaultPropertyInclusion { it.withValueInclusion(JsonInclude.Include.NON_EMPTY) }
+//                changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_EMPTY) }
+            }.build()
+
+    @Bean
+    fun codecConfigurer(jsonMapper: JsonMapper): DefaultClientCodecConfigurer =
+        DefaultClientCodecConfigurer().apply {
+            defaultCodecs().jacksonJsonDecoder(JacksonJsonDecoder(jsonMapper))
+            defaultCodecs().jacksonJsonEncoder(JacksonJsonEncoder(jsonMapper))
+        }
+
+//    @Bean
+//    fun jacksonJsonEncoder(jsonMapper: JsonMapper) = JacksonJsonEncoder(jsonMapper)
+
+    @Bean
+    fun graphQlHttpHandler(
+        webGraphQlHandler: WebGraphQlHandler,
+        codecConfigurer: CodecConfigurer,
+    ) = GraphQlHttpHandler(webGraphQlHandler, codecConfigurer)
+
+    @Bean
+    fun cursorStrategy(codecConfigurer: CodecConfigurer) =
+        CursorStrategy.withEncoder(
+            ScrollPositionCursorStrategy(
+                JsonKeysetCursorStrategy(codecConfigurer),
+            ),
+            CursorEncoder.base64(),
+        )
+}
+
+@RestController
+@RequestMapping(produces = [MediaType.APPLICATION_JSON_VALUE])
+class VehiclesController {
+    @GetMapping("/vehicles")
+    @ResponseStatus(HttpStatus.OK)
+    suspend fun getVehicles() = VEHICLES
+}
+
+@Controller
+class VehiclesGraphQLController {
+    @QueryMapping
+    suspend fun vehicles() = VEHICLES
+}
+
+data class Vehicle(
+    val name: String,
+    val price: Double?,
+    val transmissions: List<String>?,
+    val paints: Map<Int, String?>,
+)
