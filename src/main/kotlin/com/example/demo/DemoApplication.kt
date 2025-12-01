@@ -2,13 +2,16 @@ package com.example.demo
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.http.codec.CodecCustomizer
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Primary
+import org.springframework.graphql.MediaTypes
 import org.springframework.graphql.data.method.annotation.QueryMapping
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.codec.json.JacksonJsonEncoder
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -34,15 +37,28 @@ val VEHICLES =
 
 @Configuration
 class JacksonConfiguration {
+//    @Bean
+//    @Primary
+//    fun jsonMapper(): JsonMapper =
+//        jacksonMapperBuilder()
+//            .apply {
+//                changeDefaultPropertyInclusion { it.withValueInclusion(JsonInclude.Include.NON_EMPTY) }
+//                // Uncommenting the line bellow fixes the GraphQL issue (GraphQL response data is a LinkedHashMap)
+// //                changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_NULL) }
+//            }.build()
+
     @Bean
-    @Primary
-    fun jsonMapper(): JsonMapper =
-        jacksonMapperBuilder()
-            .apply {
-                changeDefaultPropertyInclusion { it.withValueInclusion(JsonInclude.Include.NON_EMPTY) }
-                // Uncommenting the line bellow fixes the GraphQL issue (GraphQL response data is a LinkedHashMap)
-                // changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_EMPTY) }
-            }.build()
+    fun jacksonInclusionCustomizer(): CodecCustomizer {
+        val jsonMapper =
+            jacksonMapperBuilder()
+                .apply {
+                    changeDefaultPropertyInclusion { it.withValueInclusion(JsonInclude.Include.NON_EMPTY) }
+                    changeDefaultPropertyInclusion { it.withContentInclusion(JsonInclude.Include.NON_EMPTY) }
+                }.build()
+        return CodecCustomizer {
+            it.customCodecs().register(JacksonJsonEncoder(jsonMapper, MediaTypes.APPLICATION_GRAPHQL_RESPONSE))
+        }
+    }
 }
 
 @RestController
